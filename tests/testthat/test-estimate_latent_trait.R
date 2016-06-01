@@ -6,396 +6,325 @@ library(MultiGHQuad)
 
 make_random_seed_exist <- rnorm(1)
 
-context("estimator is ML")
+context("estimator is maximum_likelihood")
 
-test_that("estimator is ML, 1 dimension, 2 categories", {
+test_that("estimator is maximum_likelihood, 1 dimension, 2 categories", {
+  number_dimensions <- 1
+  estimate <- rep(.3, number_dimensions)
   model <- "3PLM"
   number_items <- 50
-  number_dimensions <- 1
-  number_answer_categories <- 2 # can only be 2 for 3PLM model
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  eta <- NULL # only relevant for GPCM model
-  
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "maximum_likelihood"
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form <- NULL
+  prior_parameters <- NULL
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, prior = NULL)
-  initiated_person$available <- c(1:5, 21:30, 50)
-  initiated_person$administered <- c(6:20, 31:49)
-  initiated_person$estimate <- rep(.3, item_characteristics_shadowcat_format$Q)
-  initiated_person$responses <- rep(c(1, 0), 17)
-  
-  estimated_latent_trait <- estimate(initiated_person, initiated_test)
-  
-  expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), -.799)
-  expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3), matrix(.271))
+  estimated_latent_trait <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item)
+    
+  expect_equal(round(as.vector(estimated_latent_trait), 3), -.799)
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3), matrix(.271))
 })
 
 
-test_that("estimator is ML, 3 dimensions, varying number of categories", {
-  # create item characteristics
-  model <- 'GPCM'
-  number_items <- 50
+test_that("estimator is maximum_likelihood, 3 dimensions, varying number of categories", {
   number_dimensions <- 3
+  estimate <- c(2, .3, -1.2)
+  model <- "GPCM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "maximum_likelihood"
   max_number_answer_categories <- 5
-  guessing <- NULL
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
   eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
   eta[c(1, 5:10), 3:4] <- NA
   eta[c(40:45), 4] <- NA
   beta <- row_cumsum(eta)
+  guessing <- NULL
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form <- NULL
+  prior_parameters <- NULL
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
+  estimated_latent_trait <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item)
   
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, prior = NULL)
-  initiated_person$available <- c(1:5, 21:30, 50)
-  initiated_person$administered <- c(6:20, 31:49)
-  initiated_person$estimate <- c(2, .3, -1.2)
-  initiated_person$responses <- rep(c(1, 0), 17)
-  
-  estimated_latent_trait <- estimate(initiated_person, initiated_test)
-  
-  expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), c(-2.03, -.408, -.449))
-  expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[1,], c(.749, -.495, -.181))
-  expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[3,], c(-.181, -.281, .484))
+  expect_equal(round(as.vector(estimated_latent_trait), 3), c(-2.03, -.408, -.449))
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3)[1,], c(.749, -.495, -.181))
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3)[3,], c(-.181, -.281, .484))
 })
 
-test_that("test safe_ml", {
-  # create item characteristics
-  model <- 'SM'
+context("estimator is maximum_aposteriori")
+
+test_that("estimator is maximum_aposteriori, 1 dimension, 2 categories, prior is normal", { 
+  number_dimensions <- 1
+  estimate <- rep(.3, number_dimensions)
+  model <- "3PLM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "maximum_aposteriori"
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form <- "normal"
+  prior_parameters <- list(mu = 0, Sigma = diag(1))
+  
+  estimated_latent_trait <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item)
+  
+  expect_equal(round(as.vector(estimated_latent_trait), 3), -.642)
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3), matrix(.201))
+})
+
+test_that("estimator is maximum_aposteriori, 1 dimension, 2 categories, prior is uniform", { 
+  number_dimensions <- 1
+  estimate <- rep(.3, number_dimensions)
+  model <- "3PLM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "maximum_aposteriori"
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form <- "uniform"
+  prior_parameters <- list(lower_bound = -3, upper_bound = 3)
+  
+  estimated_latent_trait <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item)
+  
+  expect_equal(round(as.vector(estimated_latent_trait), 3), -.799)
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3), matrix(.271))
+})
+
+test_that("estimator is maximum_aposteriori, 3 dimensions, varying number of categories, prior is normal", {
+  number_dimensions <- 3
+  estimate <- c(2, .3, -1.2)
+  model <- "GPCM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "maximum_aposteriori"
+  max_number_answer_categories <- 5
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
+  eta[c(1, 5:10), 3:4] <- NA
+  eta[c(40:45), 4] <- NA
+  beta <- row_cumsum(eta)
+  guessing <- NULL
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "normal"
+  prior_parameters = list(mu = rep(0, number_dimensions), Sigma = diag(number_dimensions))
+  
+  estimated_latent_trait <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item)
+  
+  expect_equal(round(as.vector(estimated_latent_trait), 3), c(-1.447, -.714, -.614))
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3)[1,], c(.343, -.191, -.117))
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3)[3,], c(-.117, -.131, .280))
+})
+
+test_that("estimator is maximum_aposteriori, 3 dimensions, varying number of categories, prior is uniform", {
+  number_dimensions <- 3
+  estimate <- c(2, .3, -1.2)
+  model <- "GPCM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "maximum_aposteriori"
+  max_number_answer_categories <- 5
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
+  eta[c(1, 5:10), 3:4] <- NA
+  eta[c(40:45), 4] <- NA
+  beta <- row_cumsum(eta)
+  guessing <- NULL
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "uniform"
+  prior_parameters = list(lower_bound = c(-2, -2, -3), upper_bound = c(3, 3, 3))
+  
+  estimated_latent_trait <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item)
+  
+  expect_equal(round(as.vector(estimated_latent_trait), 3), c(-2.000, -.428, -.457))
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3)[1,], c(.747, -.494, -.182))
+  expect_equal(round(attr(estimated_latent_trait, "variance"), 3)[3,], c(-.182, -.280, .484))
+})
+
+context("estimator is expected_aposteriori")
+
+test_that("estimator is expected_aposteriori, 1 dimension, 2 categories, normal prior", {
+  number_dimensions <- 1
+  estimate <- rep(.3, number_dimensions)
+  attr(estimate, "variance") <- 1.2
+  model <- "3PLM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "expected_aposteriori"
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  eta <- NULL
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "normal"
+  prior_parameters = list(mu = 0, Sigma = diag(1))
+  
+  estimated_latent_trait_gauss_hermite <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item, eap_estimation_procedure = "gauss_hermite_quad")
+  estimated_latent_trait_riemann <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item,, eap_estimation_procedure = "riemannsum")
+  
+  expect_equal(round(as.vector(estimated_latent_trait_gauss_hermite), 3), -.689)
+  expect_equal(round(as.vector(estimated_latent_trait_riemann), 3), -.689)
+  expect_equal(as.vector(round(attr(estimated_latent_trait_gauss_hermite, "variance"), 3)), .205)
+  expect_equal(as.vector(round(attr(estimated_latent_trait_riemann, "variance"), 3)), .205)
+})
+
+test_that("estimator is expected_aposteriori, 1 dimension, 2 categories, uniform", {
+  number_dimensions <- 1
+  estimate <- rep(.3, number_dimensions)
+  attr(estimate, "variance") <- 1.2
+  model <- "3PLM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "expected_aposteriori"
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  eta <- NULL
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "uniform"
+  prior_parameters = list(lower_bound = -3, upper_bound = 3)
+  
+  estimated_latent_trait_riemann <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item,, eap_estimation_procedure = "riemannsum")
+  
+  expect_equal(round(as.vector(estimated_latent_trait_riemann), 3), -.902)
+  expect_equal(as.vector(round(attr(estimated_latent_trait_riemann, "variance"), 3)), .305)
+})
+
+test_that("estimator is expected_aposteriori, 3 dimensions, varying number of categories, normal prior", {
+  number_dimensions <- 3
+  estimate <- c(2, .3, -1.2)
+  attr(estimate, "variance") <- diag(c(2, 1.2, 1.5))
+  model <- "GPCM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "expected_aposteriori"
+  max_number_answer_categories <- 5
+  guessing <- NULL
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
+  eta[c(1, 5:10), 3:4] <- NA
+  eta[c(40:45), 4] <- NA
+  beta <- row_cumsum(eta)
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "normal"
+  prior_parameters = list(mu = c(0, 0, 0), Sigma = diag(c(1, 1.3, 1)))
+  
+  estimated_latent_trait_gauss_hermite <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item, eap_estimation_procedure = "gauss_hermite_quad")
+  estimated_latent_trait_riemann <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item, eap_estimation_procedure = "riemannsum")
+  
+  expect_equal(round(as.vector(estimated_latent_trait_gauss_hermite), 3), c(-.861, -1.486, -.604))
+  expect_equal(round(as.vector(estimated_latent_trait_riemann), 3), c(-1.536, -0.611, -0.182))
+  expect_equal(round(attr(estimated_latent_trait_gauss_hermite, "variance"), 3)[1,], c(.348, -.214, -.042))
+  expect_equal(round(attr(estimated_latent_trait_gauss_hermite, "variance"), 3)[3,], c(-.042, -.189, .238))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[1,], c(.002, -.002, .000))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[3,], c(-.000, -.005, .006))
+})
+
+test_that("estimator is expected_aposteriori, 3 dimensions, varying number of categories, uniform prior", {
+  number_dimensions <- 3
+  estimate <- c(2, .3, -1.2)
+  attr(estimate, "variance") <- diag(c(2, 1.2, 1.5))
+  model <- "GPCM"
+  number_items <- 50
+  answers <- rep(c(1, 0), 17)
+  administered <- c(6:20, 31:49)
+  estimator <- "expected_aposteriori"
+  max_number_answer_categories <- 5
+  guessing <- NULL
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
+  eta[c(1, 5:10), 3:4] <- NA
+  eta[c(40:45), 4] <- NA
+  beta <- row_cumsum(eta)
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "uniform"
+  prior_parameters = list(lower_bound = c(-3, -3, -3), upper_bound = c(4, 4, 4))
+  
+  estimated_latent_trait_riemann <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item, eap_estimation_procedure = "riemannsum")
+  
+  expect_equal(round(as.vector(estimated_latent_trait_riemann), 3), c(-1.376, -.625, -.614))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[1,], c(.067, -.061, -.032))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[3,], c(-.032, -.454, .535))
+})
+
+test_that("estimator is expected_aposteriori, 3 dimensions, varying number of categories, 1 administered", {
+  number_dimensions <- 3
+  estimate <- c(2, .3, -1.2)
+  attr(estimate, "variance") <- diag(c(2, 1.2, 1.5))
+  model <- "GPCM"
+  number_items <- 50
+  answers <- 1
+  administered <- 1
+  estimator <- "expected_aposteriori"
+  max_number_answer_categories <- 5
+  guessing <- NULL
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
+  eta[c(1, 5:10), 3:4] <- NA
+  eta[c(40:45), 4] <- NA
+  beta <- row_cumsum(eta)
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "normal"
+  prior_parameters = list(mu = c(0, 0, 0), Sigma = diag(c(1, 1.3, 1)))
+  
+  estimated_latent_trait_gauss_hermite <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item, eap_estimation_procedure = "gauss_hermite_quad")
+  estimated_latent_trait_riemann <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item, eap_estimation_procedure = "riemannsum")
+  
+  expect_equal(round(as.vector(estimated_latent_trait_gauss_hermite), 3), c(-.347, -.267, -.360))
+  expect_equal(round(as.vector(estimated_latent_trait_riemann), 3), c(-.355, -.273, -.368))
+  
+  expect_equal(round(attr(estimated_latent_trait_gauss_hermite, "variance"), 3)[1,], c(.941, -.045, -.061))
+  expect_equal(round(attr(estimated_latent_trait_gauss_hermite, "variance"), 3)[3,], c(-.061, -.047, .936))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[1,], c(.946, -.046, -.060))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[3,], c(-.060, -.047, .940))
+})
+
+test_that("test safe_eap", {
+  number_dimensions <- 3
+  estimate <- c(0, 0, 0)
+  attr(estimate, "variance") <- diag(c(0, 0, 0))
+  model <- "GPCM"
   number_items <- 300
-  number_dimensions <- 3
-  max_number_answer_categories <- 2
-  guessing <- NULL
-  
-  alpha <- matrix(with_random_seed(107, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-  beta <- matrix(with_random_seed(107, rnorm)(number_items), nrow = number_items, ncol = 1)
-  
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 9), 
-                             stop = list(type = 'length', n = 300),
-                             max_n = 300, # utter maximum
-                             estimator = 'ML',
-                             objective = 'A',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, prior = NULL)
-  initiated_person$available <- c(1:3, 5:26, 28:37, 39:181, 183:186, 188:199, 201:226, 228:240, 242:273, 275:197, 299:300)
-  initiated_person$administered <- c(38, 27, 4, 182, 187, 200, 241, 274, 227, 298)
-  initiated_person$estimate <- c(0, 0, 0)
-  initiated_person$responses <- c(0, 0, 0, 1, 1, 1, 1, 1, 1, 0)
-  attr(initiated_person$estimate, "variance") <- diag(3) * 20
-  
-  # ML estimation gives warning -> estimate switches to MAP
-  estimated_latent_trait <- estimate(initiated_person, initiated_test, prior_var_safe_ml = 1)
-
-  expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), c(.248, .366, .476))
-  
-})
-
-context("estimator is MAP")
-
-test_that("estimator is MAP, 1 dimension, 2 categories", {
-  model <- "3PLM"
-  number_items <- 50
-  number_dimensions <- 1
-  number_answer_categories <- 2 # can only be 2 for 3PLM model
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  eta <- NULL # only relevant for GPCM model
-  
-  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-  beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-  
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'MAP',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format)
-  initiated_person$available <- c(1:5, 21:30, 50)
-  initiated_person$administered <- c(6:20, 31:49)
-  initiated_person$responses <- rep(c(1, 0), 17)
-  initiated_person$estimate <- rep(.3, item_characteristics_shadowcat_format$Q)
-  attr(initiated_person$estimate, "variance") <- 1.2
-  
-  estimated_latent_trait <- estimate(initiated_person, initiated_test)
-  
-  expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), -.642)
-  expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3), matrix(.201))
-})
-
-test_that("estimator is MAP, 3 dimensions, varying number of categories", {
-  # create item characteristics
-  model <- 'GPCM'
-  number_items <- 50
-  number_dimensions <- 3
+  answers <- rep(1, 300)
+  administered <- 1:300
+  estimator <- "expected_aposteriori"
   max_number_answer_categories <- 5
   guessing <- NULL
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
   eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
   eta[c(1, 5:10), 3:4] <- NA
   eta[c(40:45), 4] <- NA
   beta <- row_cumsum(eta)
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  prior_form = "uniform"
+  prior_parameters = list(lower_bound = rep(-1, 3), upper_bound = rep(1, 3))
+  safe_eap = TRUE
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
+  estimated_latent_trait_riemann <- estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator, alpha, beta, guessing, number_itemsteps_per_item, safe_eap = safe_eap, eap_estimation_procedure = "riemannsum")
   
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'MAP',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format)
-  initiated_person$available <- c(1:5, 21:30, 50)
-  initiated_person$administered <- c(6:20, 31:49)
-  initiated_person$responses <- rep(c(1, 0), 17)
-  initiated_person$estimate <- c(2, .3, -1.2)
-  attr(initiated_person$estimate, "variance") <- diag(c(1, 1.2, 1.5))
-  
-  estimated_latent_trait <- estimate(initiated_person, initiated_test)
-  
-  expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), c(-1.447, -.714, -.614))
-  expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[1,], c(.343, -.191, -.117))
-  expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[3,], c(-.117, -.131, .280))
+  expect_equal(round(as.vector(estimated_latent_trait_riemann), 3), c(-.540, -0.368, -0.748))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[1,], c(.034, -.016, -.015))
+  expect_equal(round(attr(estimated_latent_trait_riemann, "variance"), 3)[3,], c(-.015, -.017, .034))
 })
-
-
-
-context("estimator is EAP")
-
-# test_that("estimator is EAP, 1 dimension, 2 categories", {
-#   model <- "3PLM"
-#   number_items <- 50
-#   number_dimensions <- 1
-#   number_answer_categories <- 2 # can only be 2 for 3PLM model
-#   guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-#   eta <- NULL # only relevant for GPCM model
-#   
-#   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-#   beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-#   
-#   item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-#   
-#   # get initiated test: adaptive test rules
-#   initiated_test <- initTest(item_characteristics_shadowcat_format, 
-#                              start = list(type = 'random', n = 5), 
-#                              stop = list(type = 'length', n = 30),
-#                              max_n = 50, # utter maximum
-#                              estimator = 'EAP',
-#                              objective = 'PD',
-#                              selection = 'MI',
-#                              constraints = NULL,
-#                              exposure = NULL,
-#                              lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-#                              upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-#   
-#   # get initiated person
-#   initiated_person <- initPerson(item_characteristics_shadowcat_format)
-#   initiated_person$available <- c(1:5, 21:30, 50)
-#   initiated_person$administered <- c(6:20, 31:49)
-#   initiated_person$responses <- rep(c(1, 0), 17)
-#   initiated_person$estimate <- rep(.3, item_characteristics_shadowcat_format$Q)
-#   attr(initiated_person$estimate, "variance") <- 1.2
-#   
-#   estimated_latent_trait <- estimate(initiated_person, initiated_test)
-#   
-#   expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), -.569)
-#   expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3), matrix(.160))
-# })
-# 
-# test_that("estimator is EAP, 3 dimensions, varying number of categories", {
-#   # create item characteristics
-#   model <- 'GPCM'
-#   number_items <- 50
-#   number_dimensions <- 3
-#   max_number_answer_categories <- 5
-#   guessing <- NULL
-#   
-#   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-#   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-#   eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
-#   eta[c(1, 5:10), 3:4] <- NA
-#   eta[c(40:45), 4] <- NA
-#   beta <- row_cumsum(eta)
-#   
-#   item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
-#   
-#   # get initiated test: adaptive test rules
-#   initiated_test <- initTest(item_characteristics_shadowcat_format, 
-#                              start = list(type = 'random', n = 5), 
-#                              stop = list(type = 'length', n = 30),
-#                              max_n = 50, # utter maximum
-#                              estimator = 'EAP',
-#                              objective = 'PD',
-#                              selection = 'MI',
-#                              constraints = NULL,
-#                              exposure = NULL,
-#                              lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-#                              upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-#   
-#   # get initiated person
-#   initiated_person <- initPerson(item_characteristics_shadowcat_format, prior = diag(c(1,1.3,1)))
-#   initiated_person$available <- c(1:5, 21:30, 50)
-#   initiated_person$administered <- c(6:20, 31:49)
-#   initiated_person$responses <- rep(c(1, 0), 17)
-#   initiated_person$estimate <- c(2, .3, -1.2)
-#   attr(initiated_person$estimate, "variance") <- diag(c(2, 1.2, 1.5))
-#   
-#   estimated_latent_trait <- estimate(initiated_person, initiated_test)
-#   
-#   expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), c(-.707, -1.701, -.394))
-#   expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[1,], c(.070, -.047, -.002))
-#   expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[3,], c(-.002, -.073, .092))
-# })
-# 
-# test_that("estimator is EAP, 3 dimensions, varying number of categories, 1 administered", {
-#   # create item characteristics
-#   model <- 'GPCM'
-#   number_items <- 50
-#   number_dimensions <- 3
-#   max_number_answer_categories <- 5
-#   guessing <- NULL
-#   
-#   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-#   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-#   eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
-#   eta[c(1, 5:10), 3:4] <- NA
-#   eta[c(40:45), 4] <- NA
-#   beta <- row_cumsum(eta)
-#   
-#   item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
-#   
-#   # get initiated test: adaptive test rules
-#   initiated_test <- initTest(item_characteristics_shadowcat_format, 
-#                              start = list(type = 'random', n = 5), 
-#                              stop = list(type = 'length', n = 30),
-#                              max_n = 50, # utter maximum
-#                              estimator = 'EAP',
-#                              objective = 'PD',
-#                              selection = 'MI',
-#                              constraints = NULL,
-#                              exposure = NULL,
-#                              lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-#                              upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-#   
-#   # get initiated person
-#   initiated_person <- initPerson(item_characteristics_shadowcat_format, prior = diag(c(1,1.3,1)))
-#   initiated_person$available <- c(2:50)
-#   initiated_person$administered <- c(1)
-#   initiated_person$responses <- 1
-#   initiated_person$estimate <- c(2, .3, -1.2)
-#   attr(initiated_person$estimate, "variance") <- diag(c(2, 1.2, 1.5))
-#   
-#   estimated_latent_trait <- estimate(initiated_person, initiated_test)
-#   
-#   expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), c(-.197, -.152, -.205))
-#   expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[1,], c(.494, -.011, -.015))
-#   expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[3,], c(-.015, -.011, .492))
-# })
-# 
-# test_that("estimates exceed boundaries", {
-#   # create item characteristics
-#   model <- 'GPCM'
-#   number_items <- 50
-#   number_dimensions <- 3
-#   max_number_answer_categories <- 5
-#   guessing <- NULL
-#   
-#   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-#   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-#   eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
-#   eta[c(1, 5:10), 3:4] <- NA
-#   eta[c(40:45), 4] <- NA
-#   beta <- row_cumsum(eta)
-#   
-#   item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
-#   
-#   # get initiated test: adaptive test rules
-#   initiated_test <- initTest(item_characteristics_shadowcat_format, 
-#                              start = list(type = 'random', n = 5), 
-#                              stop = list(type = 'length', n = 30),
-#                              max_n = 50, # utter maximum
-#                              estimator = 'EAP',
-#                              objective = 'PD',
-#                              selection = 'MI',
-#                              constraints = NULL,
-#                              exposure = NULL,
-#                              lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-#                              upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-#   
-#   # get initiated person
-#   initiated_person <- initPerson(item_characteristics_shadowcat_format, prior = diag(c(5,5,5)))
-#   initiated_person$available <- c()
-#   initiated_person$administered <- c(1:50)
-#   initiated_person$responses <- rep(1,50)
-#   initiated_person$estimate <- c(-10, 10, 10)
-#   attr(initiated_person$estimate, "variance") <- diag(c(.1, .1, .1))
-#   
-#   estimated_latent_trait <- estimate(initiated_person, initiated_test)
-#   
-#   expect_equal(round(as.vector(estimated_latent_trait$estimate), 3), c(-3, 3, 3))
-#   expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[1,], c(0, 0, 0))
-#   expect_equal(round(attr(estimated_latent_trait$estimate, "variance"), 3)[3,], c(0, 0, 0))
-# })
 

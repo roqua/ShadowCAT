@@ -8,406 +8,212 @@ make_random_seed_exist <- rnorm(1)
 context("3PLM model")
 
 test_that("model is 3PLM, 1 dimensions, 2 categories", {
-  # create item characteristics
+  number_dimensions <- 1
+  theta <- .5
   model <- "3PLM"
   number_items <- 50
-  number_dimensions <- 1
-  number_answer_categories <- 2 # can only be 2 for 3PLM model
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  eta <- NULL # only relevant for GPCM model
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = .4)
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
   
   expect_equal(dim(fisher_information), c(1, 1, 50))
-  expect_equal(round(fisher_information[,,c(1,3, 40, 50)], 3), c(.055, .085, .039, .182))
+  expect_equal(round(fisher_information[,,c(1, 3, 40, 50)], 3), c(.051, .129, .039, .117))
 })
 
 test_that("model is 3PLM, 3 dimensions, 2 categories", {
-  # create item characteristics
+  number_dimensions <- 3
+  theta <- c(2.1, -1.1, .7 )
   model <- "3PLM"
   number_items <- 50
-  number_dimensions <- 3
-  number_answer_categories <- 2 # can only be 2 for 3PLM model
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  eta <- NULL # only relevant for GPCM model
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = matrix(c(1.2, 1.5, 1.7, 1.5, .9, 1.5, 1.7, 1.5, 1.1), ncol = 3))
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
   
   expect_equal(dim(fisher_information), c(3, 3, 50))
   expect_equal(dim(fisher_information[,,2]), c(3, 3))
-  expect_equal(round(fisher_information[,1,2], 3), c(.244, .068, .174))
-  expect_equal(round(fisher_information[,2,3], 3), c(0, 0, 0))
-  expect_equal(round(fisher_information[1,,24], 3), c(0.000, 0.000, 0.001))
-  expect_equal(round(fisher_information[3,,40], 3), c(.063, .093, .102))
+  expect_equal(round(fisher_information[,1,2], 3), c(.104, .029, .074))
+  expect_equal(round(fisher_information[,2,3], 3), c(.004, .004, .006))
+  expect_equal(round(fisher_information[1,,24], 3), c(.002, .002, .006))
+  expect_equal(round(fisher_information[3,,40], 3), c(.049, .072, .079))
 })
 
+context("GPCM model")
+
 test_that("model is GPCM, 1 dimensions, 2 categories", {
-  # create item characteristics
-  model <- 'GPCM'
-  number_items <- 50
   number_dimensions <- 1
-  number_answer_categories <- 2
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  
+  theta <- -.7
+  model <- "GPCM"
+  number_items <- 50
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = NULL, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'MAP',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = .5, prior = .6)
-  initiated_person$responses <- rep(c(0,1), 50)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
   
   expect_equal(dim(fisher_information), c(1, 1, 50))
-  expect_equal(round(fisher_information[,,c(1,3, 40, 50)], 3), c(.056, .138, .057, .288))
+  expect_equal(round(fisher_information[,,c(1,3, 40, 50)], 3), c(.063, .082, .058, .395))
 }) 
 
 
 test_that("model is GPCM, 3 dimensions, varying numbers of categories", {
-  # create item characteristics
-  model <- 'GPCM'
-  number_items <- 50
   number_dimensions <- 3
+  theta <- c(2, 1, -2)
+  model <- "GPCM"
+  number_items <- 50
   max_number_answer_categories <- 5
-  guessing <- NULL
-  
-  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-  eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
-  eta[c(1, 5:10), 3:4] <- NA
-  eta[c(40:45), 4] <- NA
-  beta <- NULL
-  
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = matrix(c(1.2, 1.5, 1.7, 1.5, .9, 1.5, 1.7, 1.5, 1.1), ncol = 3))
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
-  
-  expect_equal(dim(fisher_information), c(3, 3, 50))
-  expect_equal(dim(fisher_information[,,2]), c(3, 3))
-  expect_equal(round(fisher_information[,1,2], 3), c(.952, .265, .678))
-  expect_equal(round(fisher_information[,2,3], 3), c(.643, .729, .962))
-  expect_equal(round(fisher_information[1,,24], 3), c(.116, .126, .330))
-  expect_equal(round(fisher_information[3,,40], 3), c(.216, .319, .351))
-})
-context("SM model")
-
-test_that("model is SM 1 dimensions, 2 categories", {
-  # create item characteristics
-  model <- "SM"
-  number_items <- 50
-  number_dimensions <- 1
-  number_answer_categories <- 2 # can only be 2 for 3PLM model
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  eta <- NULL # only relevant for GPCM model
-  
-  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-  beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-  
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = .4)
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
-  
-  expect_equal(dim(fisher_information), c(1, 1, 50))
-  expect_equal(round(fisher_information[,,c(1,3, 40, 50)], 3), c(.056, .138, .057, .288))
-})
-
-test_that("model is SM, 3 dimensions, 3 dimensions, 4 categories", {
-  # create item characteristics
-  model <- 'SM'
-  number_items <- 50
-  number_dimensions <- 3
-  number_answer_categories <- 4
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  
-  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
-  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
-  beta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (number_answer_categories - 1))))
-  
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = NULL, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = matrix(c(1.2, 1.5, 1.7, 1.5, .9, 1.5, 1.7, 1.5, 1.1), ncol = 3))
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
-  
-  expect_equal(dim(fisher_information), c(3, 3, 50))
-  expect_equal(dim(fisher_information[,,2]), c(3, 3))
-  expect_equal(round(fisher_information[,1,2], 3), c(.482, .134, .343))
-  expect_equal(round(fisher_information[,2,3], 3), c(.362, .410, .541))
-  expect_equal(round(fisher_information[1,,24], 3), c(.071, .077, .201))
-  expect_equal(round(fisher_information[3,,40], 3), c(.140, .206, .227))
-})
-
-test_that("model is SM, 3 dimensions, varying number of categories", {
-  # create item characteristics
-  model <- 'SM'
-  number_items <- 50
-  number_dimensions <- 3
-  max_number_answer_categories <- 5
-  guessing <- NULL
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
   eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
   eta[c(1, 5:10), 3:4] <- NA
   eta[c(40:45), 4] <- NA
   beta <- row_cumsum(eta)
+  guessing <- NULL
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = matrix(c(1.2, 1.5, 1.7, 1.5, .9, 1.5, 1.7, 1.5, 1.1), ncol = 3))
-  initiated_person$responses = rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
   
   expect_equal(dim(fisher_information), c(3, 3, 50))
   expect_equal(dim(fisher_information[,,2]), c(3, 3))
-  expect_equal(round(fisher_information[,1,2], 3), c(.589, .164, .419))
-  expect_equal(round(fisher_information[,2,3], 3), c(.435, .494, .651))
-  expect_equal(round(fisher_information[1,,24], 3), c(.079, .085, .223))
-  expect_equal(round(fisher_information[3,,40], 3), c(.064, .095, 0.104))
+  expect_equal(round(fisher_information[,1,2], 3), c(.910, .253, .647))
+  expect_equal(round(fisher_information[,2,3], 3), c(.673, .763, 1.006))
+  expect_equal(round(fisher_information[1,,24], 3), c(.054, .058, .153))
+  expect_equal(round(fisher_information[3,,40], 3), c(.209, .307, .338))
+})
+
+context("SM model")
+
+test_that("model is SM 1 dimensions, 2 categories", {
+  number_dimensions <- 1
+  theta <- .9
+  model <- "SM"
+  number_items <- 50
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
+  
+  expect_equal(dim(fisher_information), c(1, 1, 50))
+  expect_equal(round(fisher_information[,,c(1,3, 40, 50)], 3), c(.044, .217, .052, .129))
+})
+
+test_that("model is SM, 3 dimensions, 3 dimensions, 4 categories", {
+  number_dimensions <- 3
+  theta <- c(-.5, .6, 1.2)
+  model <- "SM"
+  number_items <- 50
+  number_answer_categories <- 4
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  beta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (number_answer_categories - 1))))
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
+  
+  expect_equal(dim(fisher_information), c(3, 3, 50))
+  expect_equal(dim(fisher_information[,,2]), c(3, 3))
+  expect_equal(round(fisher_information[,1,2], 3), c(.487, .135, .347))
+  expect_equal(round(fisher_information[,2,3], 3), c(.413, .468, .617))
+  expect_equal(round(fisher_information[1,,24], 3), c(.085, .092, .241))
+  expect_equal(round(fisher_information[3,,40], 3), c(.136, .200, .221))
+})
+
+test_that("model is SM, 3 dimensions, varying number of categories", {
+  number_dimensions <- 3
+  theta <- c(-2, 1, 2)
+  model <- "SM"
+  number_items <- 50
+  max_number_answer_categories <- 5
+  alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
+  temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
+  eta[c(1, 5:10), 3:4] <- NA
+  eta[c(40:45), 4] <- NA
+  beta <- row_cumsum(eta)
+  guessing <- NULL
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
+  
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
+  
+  expect_equal(dim(fisher_information), c(3, 3, 50))
+  expect_equal(dim(fisher_information[,,2]), c(3, 3))
+  expect_equal(round(fisher_information[,1,2], 3), c(.620, .172, .441))
+  expect_equal(round(fisher_information[,2,3], 3), c(.416, .471, .621))
+  expect_equal(round(fisher_information[1,,24], 3), c(.081, .088, .231))
+  expect_equal(round(fisher_information[3,,40], 3), c(.020, .030, .033))
 })
 
 context("GRM model")
 
 test_that("model is GRM 1 dimensions, 2 categories", {
-  # create item characteristics
+  number_dimensions <- 1
+  theta <- -2
   model <- "GRM"
   number_items <- 50
-  number_dimensions <- 1
-  number_answer_categories <- 2 # can only be 2 for 3PLM model
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  eta <- NULL # only relevant for GPCM model
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   beta <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = eta, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = .4)
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
   
   expect_equal(dim(fisher_information), c(1, 1, 50))
-  expect_equal(round(fisher_information[,,c(1,3, 40, 50)], 3), c(.056, .138, .057, .288))
+  expect_equal(round(fisher_information[,,c(1,3, 40, 50)], 3), c(.068, .026, .051, .265))
 })
 
 test_that("model is GRM, 3 dimensions, varying numbers of categories", {
-  # create item characteristics
-  model <- 'GRM'
-  number_items <- 50
   number_dimensions <- 3
+  theta <- c(2, .1, -1)
+  model <- "GRM"
+  number_items <- 50
   number_answer_categories <- 4
-  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
   beta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (number_answer_categories - 1))))
+  guessing <- c(rep(.1, number_items / 2), rep(.2, number_items / 2))
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, eta = NULL, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = matrix(c(1.2, 1.5, 1.7, 1.5, .9, 1.5, 1.7, 1.5, 1.1), ncol = 3))
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
   
   expect_equal(dim(fisher_information), c(3, 3, 50))
   expect_equal(dim(fisher_information[,,2]), c(3, 3))
-  expect_equal(round(fisher_information[,1,2], 3), c(.385, .107, .274))
-  expect_equal(round(fisher_information[,2,3], 3), c(.315, .357, .470))
-  expect_equal(round(fisher_information[1,,24], 3), c(.063, .069, .180))
-  expect_equal(round(fisher_information[3,,40], 3), c(.110, .163, .179))
+  expect_equal(round(fisher_information[,1,2], 3), c(.376, .104, .268))
+  expect_equal(round(fisher_information[,2,3], 3), c(.321, .364, .480))
+  expect_equal(round(fisher_information[1,,24], 3), c(.059, .064, .169))
+  expect_equal(round(fisher_information[3,,40], 3), c(.110, .162, .178))
 })
 
 test_that("model is GRM, 3 dimensions, varying number of categories", {
-  # create item characteristics
-  model <- 'GRM'
-  number_items <- 50
   number_dimensions <- 3
+  theta <- c(1.4, -1.4, 2.1)
+  model <- "GRM"
+  number_items <- 50
   max_number_answer_categories <- 5
-  guessing <- NULL
-  
   alpha <- matrix(with_random_seed(2, runif)(number_items * number_dimensions, .3, 1.5), nrow = number_items, ncol = number_dimensions)
   temp_vector <- matrix(with_random_seed(2, rnorm)(number_items), nrow = number_items, ncol = 1)
   eta <- t(apply(temp_vector, 1, function(x) x + seq(-2, 2, length.out = (max_number_answer_categories - 1))))
   eta[c(1, 5:10), 3:4] <- NA
   eta[c(40:45), 4] <- NA
   beta <- row_cumsum(eta)
+  guessing <- NULL
+  number_itemsteps_per_item <- number_non_missing_cells_per_row(beta)
   
-  item_characteristics_shadowcat_format <- initItembank(model = model, alpha = alpha, beta = beta, guessing = guessing, silent = TRUE)
-  
-  # get initiated test: adaptive test rules
-  initiated_test <- initTest(item_characteristics_shadowcat_format, 
-                             start = list(type = 'random', n = 5), 
-                             stop = list(type = 'length', n = 30),
-                             max_n = 50, # utter maximum
-                             estimator = 'ML',
-                             objective = 'PD',
-                             selection = 'MI',
-                             constraints = NULL,
-                             exposure = NULL,
-                             lowerBound = rep(-3, item_characteristics_shadowcat_format$Q),
-                             upperBound = rep(3, item_characteristics_shadowcat_format$Q))
-  # get initiated person
-  initiated_person <- initPerson(item_characteristics_shadowcat_format, theta = rep(.2, item_characteristics_shadowcat_format$Q), prior = matrix(c(1.2, 1.5, 1.7, 1.5, .9, 1.5, 1.7, 1.5, 1.1), ncol = 3))
-  initiated_person$responses <- rep(c(1, 0), 25)
-  
-  fisher_information <- FI(initiated_test, initiated_person)
+  fisher_information <- get_fisher_information(theta, model, number_dimensions, alpha, beta, guessing, number_itemsteps_per_item)
   
   expect_equal(dim(fisher_information), c(3, 3, 50))
   expect_equal(dim(fisher_information[,,2]), c(3, 3))
-  expect_equal(round(fisher_information[,1,2], 3), c(.382, .106, .272))
-  expect_equal(round(fisher_information[,2,3], 3), c(.330, .374, .493))
-  expect_equal(round(fisher_information[1,,24], 3), c(.066, .071, .186))
-  expect_equal(round(fisher_information[3,,40], 3), c(.024, .035, .039))
+  expect_equal(round(fisher_information[,1,2], 3), c(.125, .035, .089))
+  expect_equal(round(fisher_information[,2,3], 3), c(.301, .341, .449))
+  expect_equal(round(fisher_information[1,,24], 3), c(.061, .067, .174))
+  expect_equal(round(fisher_information[3,,40], 3), c(.006, .010, .011))
 })
 

@@ -10,57 +10,74 @@
 #'   
 #' TODO: Add references.
 #' 
-#' @param test Test object, see \code{\link{initTest}}.
-#' @param person Person object, see \code{\link{initPerson}}.
-#' @param theta_range Vector of theta values to be evaluated in the numerical integration. Using a sparser range may alleviate stress in higher dimensional tests.
-#' @return Vector with PEKL information for each item.
+#' @param estimate vector with current theta estimate
+#' @param model string, one of '3PLM', 'GPCM', 'SM' or 'GRM', for the three-parameter logistic, generalized partial credit, sequential or graded response model respectively.
+#' @param answers vector with person answers
+#' @param administered vector with indices of administered items
+#' @param available vector with indices of available items
+#' @param number_dimensions number of dimensions
+#' @param estimator type of estimator to be used, one of "maximum_aposteriori", "maximum_likelihood", or "expected_aposteriori"
+#' @param alpha matrix containing the alpha parameters
+#' @param beta matrix containing the beta parameters
+#' @param guessing matrix containing the quessing parameters
+#' @param prior_form String indicating the form of the prior; one of "normal" or "uniform"
+#' @param prior_parameters List containing mu and Sigma of the normal prior: list(mu = ..., Sigma = ...), or 
+#' the upper and lower bound of the uniform prior: list(lower_bound = ..., upper_bound = ...). Sigma should always
+#' be in matrix form.
+#' @param number_itemsteps_per_item vector containing the number of non missing cells per row of the beta matrix
+#' @param eap_estimation_procedure String indicating the estimation procedure for the expected aposteriori estimate, which is computed
+#' here if it is not the requested estimator in shadowcat(). One of "riemannsum" for integration via Riemannsum or
+#' "gauss_hermite_quad" for integration via Gaussian Hermite Quadrature. 
+#' @return Vector with PEKL information for each yet available item.
 #' @export
-PEKL <- function(test, person, theta_range = -3:3) {
+get_posterior_expected_kl_information <- function(estimate, model, answers, administered, available, number_dimensions, estimator, alpha, beta, guessing, prior_form, prior_parameters, number_itemsteps_per_item, eap_estimation_procedure = "riemannsum") {
   result <- function() {
     # we'll perform a very basic integration over the theta range
-    # expand the grid for multidimensional models (number of calculations will be length(theta_range)**Q, which can still get quite high for high dimensionalities.)
-    grid <- expand.grid(rep(list(theta_range), test$items$Q))
-    
-    # sum over values of the grid
-    rowSums(apply(grid, 1, KLB, theta0 = get_theta_estimate(), test = test, person = person))
+    # expand the grid for multidimensional models (number of calculations will be length(theta_values)**Q, which can still get quite high for high dimensionalities.)
+    probabilities_given_eap_estimate <- get_probs_and_likelihoods_per_item(get_theta_estimate(), model, get_subset(alpha, available), get_subset(beta, available), get_subset(guessing, available), with_likelihoods = FALSE)$P
+    log_probabilities_given_eap_estimate <- log(probabilities_given_eap_estimate)
+    theta_grid <- get_theta_grid()
+    row_or_vector_sums(apply(theta_grid, 1, kullback_leibler_divergence, probabilities_given_eap_estimate = probabilities_given_eap_estimate, log_probabilities_given_eap_estimate = log_probabilities_given_eap_estimate))
   }
   
   get_theta_estimate <- function() {
-    # collect EAP estimate
-    if (test$estimator == "EAP") {
-      person$estimate
-    } 
-    else {
-      test$estimator <- "EAP"
-      estimate(person, test)$estimate
-    }
+    if (estimator == "expected_aposteriori")
+      estimate
+    else
+      estimate_latent_trait(estimate, answers, prior_form, prior_parameters, model, administered, number_dimensions, estimator = "expected_aposteriori", alpha, beta, guessing, number_itemsteps_per_item, eap_estimation_procedure = eap_estimation_procedure)
   }
   
   #' Kullback Leibler Divergence for given items and pairs of thetas x posterior density.
-  #' theta0 is theta estimated with EAP
   #' returns vector containing information for each yet available item
-  KLB <- function(theta, theta0, test, person) {
-    # TODO: wrap this into PEKL, do not recompute P0 for each theta (considering it is constant for the current posterior).
-    available_items <- subset(test$items, person$available)
-    administered_items <- subset(test$items, person$administered)
-    P <- prob(test = test, theta = theta, items = available_items)$P
-    P0 <- prob(test = test, theta = theta0, items = available_items)$P
-    LL <- prob(test = test, theta = theta, person = person, items = administered_items, deriv = TRUE)$LL
-    
-    rowSums(P0 * (log(P0) - log(P)), na.rm = TRUE) * exp(LL)
+  kullback_leibler_divergence <- function(theta, probabilities_given_eap_estimate, log_probabilities_given_eap_estimate) {
+    probabilities_given_theta <- get_probs_and_likelihoods_per_item(theta, model, get_subset(alpha, available), get_subset(beta, available), get_subset(guessing, available), with_likelihoods = FALSE)$P
+    likelihood_or_post_density_theta <- likelihood_or_post_density(theta, answers, model, administered, number_dimensions, estimator = estimator_likelihood_or_post_density(), alpha, beta, guessing, prior_parameters = prior_parameters, return_log_likelihood_or_post_density = FALSE)
+    rowSums(probabilities_given_eap_estimate * (log_probabilities_given_eap_estimate - log(probabilities_given_theta)), na.rm = TRUE) * likelihood_or_post_density_theta
   }
   
-  validate <- function() {
-    if (is.null(test))
-      add_error("test", "is missing")
-    if (is.null(person)) 
-      add_error("person", "is missing")
+  estimator_likelihood_or_post_density <- function() {
+    if (prior_form == "uniform")
+      "maximum_likelihood"
+    else
+      "expected_aposteriori"
   }
   
-  invalid_result <- function() {
-    list(errors = errors())
+  get_theta_grid <- function() {
+    grid_list <- get_grid_list()
+    expand.grid(grid_list)
   }
   
-  validate_and_run()
+  get_grid_list <- function() {
+    if (number_dimensions == 1 && prior_form == "uniform")
+      list(seq(prior_parameters$lower_bound, prior_parameters$upper_bound, length.out = 21))
+    else if (number_dimensions == 1 && prior_form == "normal")
+      list(seq(-4, 4, length.out = 21))
+    else if (prior_form == "uniform")
+      lapply(1:number_dimensions, function(dim) { seq(prior_parameters$lower_bound[dim], prior_parameters$upper_bound[dim], length.out = 9) })
+    else
+      rep(list(-4:4), number_dimensions)
+  }  
+  
+  result()
 }
 
