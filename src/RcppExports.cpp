@@ -67,20 +67,11 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP ShadowCAT_PROB_3PLM(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP ShadowCAT_PROB_GPCM(SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP ShadowCAT_PROB_GRM(SEXP, SEXP, SEXP, SEXP, SEXP);
-RcppExport SEXP ShadowCAT_PROB_SM(SEXP, SEXP, SEXP, SEXP, SEXP);
-
 static const R_CallMethodDef CallEntries[] = {
     {"_ShadowCAT_PROB_3PLM", (DL_FUNC) &_ShadowCAT_PROB_3PLM, 6},
     {"_ShadowCAT_PROB_GRM", (DL_FUNC) &_ShadowCAT_PROB_GRM, 5},
     {"_ShadowCAT_PROB_SM", (DL_FUNC) &_ShadowCAT_PROB_SM, 5},
     {"_ShadowCAT_PROB_GPCM", (DL_FUNC) &_ShadowCAT_PROB_GPCM, 5},
-    {"ShadowCAT_PROB_3PLM", (DL_FUNC) &ShadowCAT_PROB_3PLM, 6},
-    {"ShadowCAT_PROB_GPCM", (DL_FUNC) &ShadowCAT_PROB_GPCM, 5},
-    {"ShadowCAT_PROB_GRM",  (DL_FUNC) &ShadowCAT_PROB_GRM,  5},
-    {"ShadowCAT_PROB_SM",   (DL_FUNC) &ShadowCAT_PROB_SM,   5},
     {NULL, NULL, 0}
 };
 
