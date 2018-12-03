@@ -2,7 +2,7 @@ Package: ShadowCAT
 Type: Package
 Title: Multidimensional Computer Adaptive Testing with the Shadow Testing
     Procedure
-Version: 0.1
+Version: 0.1.1
 Date: 2016-08-10
 Authors@R: as.person(c(
     "Rivka M. de Vries <rivkamdevries@gmail.com> [aut, cre]",
